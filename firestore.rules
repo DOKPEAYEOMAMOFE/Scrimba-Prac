@@ -1,0 +1,57 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /jerseys/{jerseyId} {
+      allow read: if true;
+      allow create, update, delete: if request.auth != null;
+    }
+
+    // Lightweight anonymous store analytics. Visitors may create/update only
+    // their own session document; signed-in admins can read the dashboard data.
+    match /visitors/{sessionId} {
+      allow create, update: if request.resource.data.keys().hasOnly(['visitorId','path','firstSeen','lastSeen'])
+        && request.resource.data.visitorId is string
+        && request.resource.data.path is string;
+      allow read: if request.auth != null;
+      allow delete: if request.auth != null;
+    }
+
+
+    match /reviews/{reviewId} {
+      // Anyone may submit a review, but it is hidden until an authenticated admin approves it.
+      allow create: if request.resource.data.keys().hasOnly(['jerseyId','name','rating','text','status','verified','createdAt'])
+        && request.resource.data.jerseyId is string
+        && request.resource.data.name is string
+        && request.resource.data.text is string
+        && request.resource.data.rating is int
+        && request.resource.data.rating >= 1
+        && request.resource.data.rating <= 5
+        && request.resource.data.status == 'pending';
+      allow read: if request.auth != null || resource.data.status == 'approved';
+      allow update, delete: if request.auth != null;
+    }
+
+    match /jerseyRequests/{requestId} {
+      allow create: if request.resource.data.keys().hasOnly(['name','phone','team','player','season','size','message','referenceImage','status','createdAt'])
+        && request.resource.data.name is string
+        && request.resource.data.phone is string
+        && request.resource.data.team is string
+        && request.resource.data.size is string
+        && request.resource.data.status == 'pending';
+      allow read, update, delete: if request.auth != null;
+    }
+
+    match /productViews/{viewId} {
+      allow create, update: if request.resource.data.keys().hasOnly(['sessionId','jerseyId','viewedAt'])
+        && request.resource.data.sessionId is string
+        && request.resource.data.jerseyId is string;
+      allow read: if request.auth != null;
+      allow delete: if request.auth != null;
+    }
+    match /restockAlerts/{alertId} {
+      allow create: if request.resource.data.status == "pending";
+      allow read, update, delete: if request.auth != null;
+    }
+
+  }
+}
